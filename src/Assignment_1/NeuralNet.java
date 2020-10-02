@@ -3,6 +3,8 @@ package Assignment_1;
 import Sarb.NeuralNetInterface;
 
 import java.io.*;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -33,7 +35,8 @@ public class NeuralNet implements NeuralNetInterface {
         sigmoidUpperBound = argB;
         isBipolar = argIsBipolar;
         hiddenLayerValues = new double[numHidden + 1];
-        hiddenLayerValues[numHidden] = 1;
+        //set the bias to the final element in the hidden layer values
+        hiddenLayerValues[numHidden] = bias;
         deltaHidden = new double[numHidden];
         curError = 0;
     }
@@ -95,7 +98,7 @@ public class NeuralNet implements NeuralNetInterface {
     @Override
     public double forwardPropagate(double[] X) {
         //input to hidden layer
-        double sums[] = new double[numHidden];
+        double[] sums = new double[numHidden];
         for (int i = 0; i < numInputs + 1; i++) {
             for (int j = 0; j < numHidden; j++) {
                 sums[j] += X[i] * inputToHiddenWeights[i][j];
@@ -114,11 +117,15 @@ public class NeuralNet implements NeuralNetInterface {
     @Override
     public double train(double[] X, double argValue) {
         double[] biasedInput = new double[numInputs + 1];
-        for (int i = 0; i < numInputs; i++)
-            biasedInput[i] = X[i];
-        biasedInput[numInputs] = 1;
+        //create a new array with a bias input at the end from the given input
+        if (numInputs >= 0) System.arraycopy(X, 0, biasedInput, 0, numInputs);
+        biasedInput[numInputs] = bias;
         double predictedOutput = forwardPropagate(biasedInput);
-        double derivative = predictedOutput * (1 - predictedOutput);
+        double derivative;
+        if(isBipolar)
+            derivative = 0.5 * (predictedOutput + 1) * (1 - predictedOutput);
+        else
+            derivative = predictedOutput * (1 - predictedOutput);
         //get output layer delta
         double deltaOutput = derivative * (argValue - predictedOutput);
         //update hidden to output layer weights
@@ -130,7 +137,10 @@ public class NeuralNet implements NeuralNetInterface {
         }
         //update hidden layer delta
         for (int i = 0; i < numHidden; i++) {
-            derivative = hiddenLayerValues[i] * (1 - hiddenLayerValues[i]);
+            if (isBipolar)
+                derivative = 0.5 * (1 + hiddenLayerValues[i]) * (1 - hiddenLayerValues[i]);
+            else
+                derivative = hiddenLayerValues[i] * (1 - hiddenLayerValues[i]);
             deltaHidden[i] = derivative * hiddenToOutWeights[i] * deltaOutput;
         }
 
@@ -154,6 +164,11 @@ public class NeuralNet implements NeuralNetInterface {
         return hiddenToOutWeights;
     }
 
+    public void printWeights() {
+        System.out.println("Input to Hidden weights: " + Arrays.deepToString(inputToHiddenWeights));
+        System.out.println("Hidden to Output weights: " + Arrays.toString(hiddenToOutWeights));
+    }
+
     @Override
     public void load(String argFileName) throws IOException {
         FileInputStream f = new FileInputStream(argFileName);
@@ -164,6 +179,7 @@ public class NeuralNet implements NeuralNetInterface {
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
+        assert inputMap != null;
         if (inputMap.get(IToHHashKey).length != inputToHiddenWeights.length
         || inputMap.get(HToOHashKey)[0].length != hiddenToOutWeights.length
         ) {

@@ -1,5 +1,6 @@
 import Assignment_1.NeuralNet;
 
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Runner {
@@ -25,7 +26,7 @@ public class Runner {
                 2,
                 4,
                 0.2,
-                0.0,
+                0.9,
                 -1,
                 1,
                 isBipolar
@@ -44,7 +45,7 @@ public class Runner {
             }
             if (totalErr < target) {
                 epochsToReachTarget = i;
-                System.out.println("Target error of " + target + " after" + epochsToReachTarget + " epochs");
+                System.out.println("Target error of " + target + " after " + epochsToReachTarget + " epochs");
                 return epochsToReachTarget;
             }
         }
@@ -52,9 +53,31 @@ public class Runner {
         return -1;
     }
 
-    //plot graphs of training trials for report
-    private void trainAndPlot() {
-
+    //train network and get 3 plots, 1 in the lower percentile, 1 around the average, and 1 in the upper percentile (based on previous training done)
+    private void trainAndPlot(int minEpochs, int maxEpochs, int avgEpochs) {
+        int numEpochs = 10000;
+        int epochsToReachTarget = 0;
+        double target = 0.05;
+        testNetwork.initializeWeights();
+        ArrayList<Double> errorRates = new ArrayList<Double>();
+        for (int i = 0; i < numEpochs; i++) {
+            double totalErr = 0;
+            for (int j = 0; j < TargetSet.length; j++) {
+                totalErr += 0.5 * Math.pow(testNetwork.train(TrainingSet[j], TargetSet[j]), 2);
+            }
+            errorRates.add(totalErr);
+            if (totalErr < target) {
+                epochsToReachTarget = i;
+                //find a similar training sample near the min/avg/max epochs from the trials and plot it
+                if (epochsToReachTarget < minEpochs + 100)
+                    LineChart.displayChart("Error Rate vs Epochs (Lower Percentile Sample)", errorRates);
+                if (epochsToReachTarget < avgEpochs + 10 && epochsToReachTarget > avgEpochs - 10)
+                    LineChart.displayChart("Error Rate vs Epochs (Average Percentile Sample)", errorRates);
+                if (epochsToReachTarget > maxEpochs - 100)
+                    LineChart.displayChart("Error Rate vs Epochs (Upper Percentile Sample)", errorRates);
+                return;
+            }
+        }
     }
     
     public static void main(String[] args) {
@@ -64,15 +87,30 @@ public class Runner {
         int numConverged = 0;
         int sum = 0;
         int epochs = 0;
+        int minEpochs = 0;
+        int maxEpochs = 0;
+        int avgEpochs = 0;
+        boolean isBipolar = false;
+
         for (int i = 0; i < 100; i++) {
-            Runner test = new Runner(false);
+            Runner test = new Runner(isBipolar);
             epochs = test.trainNetwork();
             if (epochs != -1) {
                 numConverged++;
                 sum += epochs;
+                if (epochs > maxEpochs || maxEpochs == 0)
+                    maxEpochs = epochs;
+                if (epochs < minEpochs)
+                    minEpochs = epochs;
             }
         }
-        if (numConverged > 0)
+        if (numConverged > 0) {
+            avgEpochs = (int) sum / numConverged;
             System.out.println("Average convergence rate: " + (int) sum / numConverged);
+
+        }
+
+        Runner test = new Runner(isBipolar);
+        test.trainAndPlot(minEpochs, maxEpochs, avgEpochs);
     }
 }
